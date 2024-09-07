@@ -82,11 +82,19 @@ class InMemoryInvertedIndex(InvertedIndex):
     """
 
     def __init__(self, corpus: Corpus, fields: Iterable[str], normalizer: Normalizer, tokenizer: Tokenizer, compressed: bool = False):
-        self._corpus = corpus
+        self._corpus = corpus # corpus = list of Documents
+                              # Document = doc_id, fields : Dict[str, Any]
+                              # ex:
+                              # (21, {title: "star wars: the book",
+                              #       author: "giorgio lucchi",
+                              #       year: 1970}
+                              # )
         self._normalizer = normalizer
         self._tokenizer = tokenizer
-        self._posting_lists: List[PostingList] = []
-        self._dictionary = InMemoryDictionary()
+        self._posting_lists: List[PostingList] = [] # posting_lists = List[PostingList] = A list where all elements are of type PostingList
+                                                    # PostingList = List[Posting]. A list where all elements are of type Posting
+                                                    # Posting = doc_id, term_freq
+        self._dictionary = InMemoryDictionary() # term : term_id (length of term)
         self._build_index(fields, compressed)
 
     def __repr__(self):
@@ -110,7 +118,23 @@ class InMemoryInvertedIndex(InvertedIndex):
         ranking. See https://nlp.stanford.edu/IR-book/html/htmledition/positional-indexes-1.html for
         further details.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+
+        for doc in self._corpus : 
+            doc_id = doc.get_document_id()
+
+            for field in fields :
+
+                text = doc.get_field(field, '')#extract text from the field "next(fields)"
+                                              #field = title, body, author, date, etc...
+                                              #next(fields) is of type str
+
+                terms = self.get_terms(text)
+                term_freq_dict = Counter(terms) #for every term gets frequency in a dict
+               
+                for term, term_freq in term_freq_dict.items() :
+                    term_id = self._add_to_dictionary(term) #adds the term to the dict, but not if it already exists. Returns the id of the term
+                    self._append_to_posting_list(term_id, doc_id, term_freq, compressed) #appends the posting to the list
+         
 
     def _add_to_dictionary(self, term: str) -> int:
         """
@@ -125,7 +149,33 @@ class InMemoryInvertedIndex(InvertedIndex):
         must be kept sorted so that we can efficiently traverse and
         merge them when querying the inverted index.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        posting = Posting(document_id, term_frequency)
+    
+        if term_id >= len(self._posting_lists) : #if the id of the term doesn't exist in the list as an index
+            posting_list = InMemoryPostingList()
+
+            if compressed :
+                posting_list = CompressedInMemoryPostingList()
+
+            posting_list.append_posting(posting) 
+            self._posting_lists.append(posting_list)
+
+        else :
+            posting_list = self._posting_lists[term_id] #gets postings (InMemmoryPostingList) for a given term
+            
+            old_post = self._contains_posting(posting_list, posting)
+
+            if old_post : #checks if posting for a same doc already exists for a given term
+                old_post.term_frequency += term_frequency #if yes, add up frequencies
+            else :
+                posting_list.append_posting(posting) #assumes the docs to be already sorted 
+            
+
+    def _contains_posting(self, posting_list: PostingList, posting: Posting ) -> Posting :
+        for post in posting_list.get_iterator() :
+            if post.document_id == posting.document_id :
+                return post
+        return None
 
     def _finalize_index(self):
         """
@@ -144,13 +194,20 @@ class InMemoryInvertedIndex(InvertedIndex):
     def get_indexed_terms(self) -> Iterator[str]:
         # Assume that everything fits in memory. This would not be the case in a serious
         # large-scale application, even with compression.
-        return (s for s, _ in self._dictionary)
+        return (s for s, _ in self._dictionary) #iterator over set of all terms 
 
     def get_postings_iterator(self, term: str) -> Iterator[Posting]:
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        if term not in self._dictionary :
+            return []
+        term_id = self._dictionary[term] 
+        return self._posting_lists[term_id].get_iterator() #returns iterator over postings for a given term
 
     def get_document_frequency(self, term: str) -> int:
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        # number of documents with this term
+        if term not in self._dictionary :
+            return 0
+        term_id = self._dictionary[term] 
+        return self._posting_lists[term_id].get_length()
 
 class DummyInMemoryInvertedIndex(InMemoryInvertedIndex):
     """

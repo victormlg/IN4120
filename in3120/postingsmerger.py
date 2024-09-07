@@ -24,7 +24,24 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        iter1 = iter(iter1)
+        iter2 = iter(iter2)
+
+        
+        it1 = next(iter1, None)
+        it2 = next(iter2, None)        
+
+        while it1 and it2 :
+
+            if it1.document_id > it2.document_id :
+                it2 = next(iter2, None)
+            elif it1.document_id < it2.document_id :
+                it1 = next(iter1, None)
+            else :
+                yield it1 
+                it1 = next(iter1, None)
+                it2 = next(iter2, None)  
+
 
     @staticmethod
     def union(iter1: Iterator[Posting], iter2: Iterator[Posting]) -> Iterator[Posting]:
@@ -35,7 +52,37 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        iter1 = iter(iter1)
+        iter2 = iter(iter2)
+
+        it1 = next(iter1, None)
+        it2 = next(iter2, None)
+
+        
+        while it1 or it2 :
+
+            if it1 and not it2:
+                yield it1
+                it1 = next(iter1, None)
+            elif it2 and not it1:
+                yield it2 
+                it2 = next(iter2, None)
+            elif it1 and it2 :
+
+                if it1.document_id > it2.document_id :
+                    yield it2
+                    it2 = next(iter2, None)
+                elif it1.document_id < it2.document_id :
+                    yield it1
+                    it1 = next(iter1, None)
+                else :
+                    yield it1 
+                    it1 = next(iter1, None)
+                    it2 = next(iter2, None)
+        
+
+             
+
 
     @staticmethod
     def difference(iter1: Iterator[Posting], iter2: Iterator[Posting]) -> Iterator[Posting]:
@@ -46,4 +93,29 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        iter1 = iter(iter1)
+        iter2 = iter(iter2)
+
+        it1 = next(iter1, None)
+        it2 = next(iter2, None)
+        
+        while it1 or it2  :
+
+            if it1 and not it2:
+                yield it1
+                it1 = next(iter1, None)
+            elif it2 and not it1:
+                it2 = None
+            elif it1 and it2 :
+
+                if it1.document_id > it2.document_id :
+                    it2 = next(iter2, None)
+                elif it1.document_id < it2.document_id :
+                    yield it1
+                    it1 = next(iter1, None)
+                else :
+                    it1 = next(iter1, None)
+                    it2 = next(iter2, None)
+            
+
+
