@@ -122,18 +122,18 @@ class InMemoryInvertedIndex(InvertedIndex):
         for doc in self._corpus : 
             doc_id = doc.get_document_id()
 
+            text = ''
             for field in fields :
-
-                text = doc.get_field(field, '')#extract text from the field "next(fields)"
+                text += doc.get_field(field, '')#extract text from the field "next(fields)"
                                               #field = title, body, author, date, etc...
                                               #next(fields) is of type str
 
-                terms = self.get_terms(text)
-                term_freq_dict = Counter(terms) #for every term gets frequency in a dict
+            terms = self.get_terms(text)
+            term_freq_dict = Counter(terms) #for every term gets frequency in a dict
                
-                for term, term_freq in term_freq_dict.items() :
-                    term_id = self._add_to_dictionary(term) #adds the term to the dict, but not if it already exists. Returns the id of the term
-                    self._append_to_posting_list(term_id, doc_id, term_freq, compressed) #appends the posting to the list
+            for term, term_freq in term_freq_dict.items() :
+                term_id = self._add_to_dictionary(term) #adds the term to the dict, but not if it already exists. Returns the id of the term
+                self._append_to_posting_list(term_id, doc_id, term_freq, compressed) #appends the posting to the list
          
 
     def _add_to_dictionary(self, term: str) -> int:
@@ -149,33 +149,12 @@ class InMemoryInvertedIndex(InvertedIndex):
         must be kept sorted so that we can efficiently traverse and
         merge them when querying the inverted index.
         """
-        posting = Posting(document_id, term_frequency)
     
         if term_id >= len(self._posting_lists) : #if the id of the term doesn't exist in the list as an index
-            posting_list = InMemoryPostingList()
-
-            if compressed :
-                posting_list = CompressedInMemoryPostingList()
-
-            posting_list.append_posting(posting) 
-            self._posting_lists.append(posting_list)
-
-        else :
-            posting_list = self._posting_lists[term_id] #gets postings (InMemmoryPostingList) for a given term
-            
-            old_post = self._contains_posting(posting_list, posting)
-
-            if old_post : #checks if posting for a same doc already exists for a given term
-                old_post.term_frequency += term_frequency #if yes, add up frequencies
-            else :
-                posting_list.append_posting(posting) #assumes the docs to be already sorted 
-            
-
-    def _contains_posting(self, posting_list: PostingList, posting: Posting ) -> Posting :
-        for post in posting_list.get_iterator() :
-            if post.document_id == posting.document_id :
-                return post
-        return None
+            self._posting_lists.append(CompressedInMemoryPostingList() if compressed else InMemoryPostingList())
+   
+        posting_list = self._posting_lists[term_id]
+        posting_list.append_posting(Posting(document_id, term_frequency))
 
     def _finalize_index(self):
         """
@@ -198,7 +177,7 @@ class InMemoryInvertedIndex(InvertedIndex):
 
     def get_postings_iterator(self, term: str) -> Iterator[Posting]:
         if term not in self._dictionary :
-            return []
+            return iter([])
         term_id = self._dictionary[term] 
         return self._posting_lists[term_id].get_iterator() #returns iterator over postings for a given term
 

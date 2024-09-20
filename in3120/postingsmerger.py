@@ -16,7 +16,9 @@ class PostingsMerger:
     """
 
     @staticmethod
-    def intersection(iter1: Iterator[Posting], iter2: Iterator[Posting]) -> Iterator[Posting]:
+    def intersection(
+        iter1: Iterator[Posting], iter2: Iterator[Posting]
+    ) -> Iterator[Posting]:
         """
         A generator that yields a simple AND(A, B) of two posting
         lists A and B, given iterators over these.
@@ -24,24 +26,20 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        iter1 = iter(iter1)
-        iter2 = iter(iter2)
 
-        
         it1 = next(iter1, None)
-        it2 = next(iter2, None)        
+        it2 = next(iter2, None)
 
-        while it1 and it2 :
+        while it1 and it2:
 
-            if it1.document_id > it2.document_id :
+            if it1.document_id > it2.document_id:
                 it2 = next(iter2, None)
-            elif it1.document_id < it2.document_id :
+            elif it1.document_id < it2.document_id:
                 it1 = next(iter1, None)
-            else :
-                yield it1 
+            else:
+                yield it1
                 it1 = next(iter1, None)
-                it2 = next(iter2, None)  
-
+                it2 = next(iter2, None)
 
     @staticmethod
     def union(iter1: Iterator[Posting], iter2: Iterator[Posting]) -> Iterator[Posting]:
@@ -52,40 +50,34 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        iter1 = iter(iter1)
-        iter2 = iter(iter2)
-
         it1 = next(iter1, None)
         it2 = next(iter2, None)
 
-        
-        while it1 or it2 :
+        while it1 or it2:
 
             if it1 and not it2:
                 yield it1
                 it1 = next(iter1, None)
             elif it2 and not it1:
-                yield it2 
+                yield it2
                 it2 = next(iter2, None)
-            elif it1 and it2 :
+            elif it1 and it2:
 
-                if it1.document_id > it2.document_id :
+                if it1.document_id > it2.document_id:
                     yield it2
                     it2 = next(iter2, None)
-                elif it1.document_id < it2.document_id :
+                elif it1.document_id < it2.document_id:
                     yield it1
                     it1 = next(iter1, None)
-                else :
-                    yield it1 
+                else:
+                    yield it1
                     it1 = next(iter1, None)
                     it2 = next(iter2, None)
-        
-
-             
-
 
     @staticmethod
-    def difference(iter1: Iterator[Posting], iter2: Iterator[Posting]) -> Iterator[Posting]:
+    def difference(
+        iter1: Iterator[Posting], iter2: Iterator[Posting]
+    ) -> Iterator[Posting]:
         """
         A generator that yields a simple ANDNOT(A, B) of two posting
         lists A and B, given iterators over these.
@@ -93,29 +85,24 @@ class PostingsMerger:
         The posting lists are assumed sorted in increasing order according
         to the document identifiers.
         """
-        iter1 = iter(iter1)
-        iter2 = iter(iter2)
 
         it1 = next(iter1, None)
         it2 = next(iter2, None)
-        
-        while it1 or it2  :
+
+        while it1 or it2:
 
             if it1 and not it2:
                 yield it1
                 it1 = next(iter1, None)
             elif it2 and not it1:
                 it2 = None
-            elif it1 and it2 :
+            elif it1 and it2:
 
-                if it1.document_id > it2.document_id :
+                if it1.document_id > it2.document_id:
                     it2 = next(iter2, None)
-                elif it1.document_id < it2.document_id :
+                elif it1.document_id < it2.document_id:
                     yield it1
                     it1 = next(iter1, None)
-                else :
+                else:
                     it1 = next(iter1, None)
                     it2 = next(iter2, None)
-            
-
-
