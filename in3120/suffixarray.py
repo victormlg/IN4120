@@ -2,7 +2,7 @@
 # pylint: disable=line-too-long
 
 import sys
-from bisect import bisect_left
+from bisect import bisect_left, insort
 from itertools import takewhile
 from typing import Any, Dict, Iterator, Iterable, Tuple, List
 from collections import Counter
@@ -33,14 +33,45 @@ class SuffixArray:
         Builds a simple suffix array from the set of named fields in the document collection.
         The suffix array allows us to search across all named fields in one go.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
 
-    def __normalize(self, buffer: str) -> str:
+
+        for doc in self.__corpus :
+
+            text = ''
+            for field in fields :
+                text+=doc.get_field(field, '')
+
+            tokens = self.get_terms(text) 
+            doc_id = doc.get_document_id()
+
+            off=0
+            while len(tokens) > off :
+                content = " ".join(tokens[off:]) #concatenate into one string
+
+                self.__haystack.append((doc_id, content))
+                index = self.__haystack.index('content')
+                self.__suffixes.append((off, index))
+                off+=1
+
+        print(self.__haystack)
+        print(self.__suffixes)
+          
+        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+
+    def get_terms(self, buffer: str) -> Iterator[str]:
+        # In a serious large-scale application there could be field-specific tokenizers.
+        # We choose to keep it simple here.
+        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
+        return [self.__normalizer.normalize(t) for t in tokens]
+
+    def __normalize(self, buffer: str) -> str: #for query
         """
         Produces a normalized version of the given string. Both queries and documents need to be
         identically processed for lookups to succeed.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+   
+        return self.__normalizer
 
     def __binary_search(self, needle: str) -> int:
         """
