@@ -33,7 +33,7 @@ class SuffixArray:
         Builds a simple suffix array from the set of named fields in the document collection.
         The suffix array allows us to search across all named fields in one go.
         """
-
+        data = []
 
         for doc in self.__corpus :
 
@@ -49,12 +49,14 @@ class SuffixArray:
                 content = " ".join(tokens[off:]) #concatenate into one string
 
                 self.__haystack.append((doc_id, content))
-                index = self.__haystack.index('content')
-                self.__suffixes.append((off, index))
+                
+                data.append((off, content))
                 off+=1
 
-        print(self.__haystack)
-        print(self.__suffixes)
+        
+
+        for (off, content) in sorted(data, key=lambda x : x[1]) :
+            self.__suffixes.append((off, data.index((off, content))))
           
         # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
 
