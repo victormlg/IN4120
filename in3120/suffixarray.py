@@ -1,6 +1,7 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=line-too-long
 
+import math
 import sys
 from bisect import bisect_left, insort
 from itertools import takewhile
@@ -33,47 +34,32 @@ class SuffixArray:
         Builds a simple suffix array from the set of named fields in the document collection.
         The suffix array allows us to search across all named fields in one go.
         """
-        data = []
 
         for doc in self.__corpus :
+            text= ''
 
-            text = ''
             for field in fields :
-                text+=doc.get_field(field, '')
-
-            tokens = self.get_terms(text) 
+                text += doc.get_field(field, '') + ' \0 '
+            
             doc_id = doc.get_document_id()
 
-            off=0
-            while len(tokens) > off :
-                content = " ".join(tokens[off:]) #concatenate into one string
+            text = self.__normalizer.canonicalize(text)
 
-                self.__haystack.append((doc_id, content))
-                
-                data.append((off, content))
-                off+=1
+            spans = list(self.__tokenizer.spans(text))
 
-        
+            for i, (start, _) in enumerate(spans) :
+                self.__haystack.append((doc_id, self.__normalize(text[start:])))
+                self.__suffixes.append((i, start)) # kanskje token index i stedet
 
-        for (off, content) in sorted(data, key=lambda x : x[1]) :
-            self.__suffixes.append((off, data.index((off, content))))
-          
-        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
-
-    def get_terms(self, buffer: str) -> Iterator[str]:
-        # In a serious large-scale application there could be field-specific tokenizers.
-        # We choose to keep it simple here.
-        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
-        return [self.__normalizer.normalize(t) for t in tokens]
+        self.__suffixes.sort(key = lambda x : self.__haystack[x[0]][1])
 
     def __normalize(self, buffer: str) -> str: #for query
         """
         Produces a normalized version of the given string. Both queries and documents need to be
         identically processed for lookups to succeed.
         """
-        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
    
-        return self.__normalizer
+        return self.__normalizer.normalize(buffer)
 
     def __binary_search(self, needle: str) -> int:
         """
@@ -85,7 +71,23 @@ class SuffixArray:
         prior to Python 3.10 due to how we represent the suffixes via (index, offset) tuples. Version 3.10
         added support for specifying a key.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+
+        high = len(self.__haystack)-1 
+        low = 0
+
+        while (low <= high) :
+            s_idx = (low + high) //2
+
+            h_idx, _ = self.__suffixes[s_idx]
+            _, substring = self.__haystack[h_idx]
+
+            if (substring== needle) :
+                return s_idx
+            elif (substring < needle) :
+                low = s_idx +1
+            elif (substring > needle) :
+                high = s_idx -1
+        return low
 
     def evaluate(self, query: str, options: dict) -> Iterator[Dict[str, Any]]:
         """
@@ -103,4 +105,23 @@ class SuffixArray:
         The results yielded back to the client are dictionaries having the keys "score" (int) and
         "document" (Document).
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        hit_count = options["hit_count"]
+    
+        s_idx = self.__binary_search(self.__normalize(query))
+
+        h_idx, _ = self.__suffixes[s_idx]
+        de = self.__haystack[h_idx:h_idx+hit_count]
+
+        # print(f'query {query} should be located at index {index} in doc {doc_id}')
+        
+        
+        print(de)
+
+
+        # content[index:] 
+
+        for subs in self.__haystack[h_idx:h_idx+hit_count] :
+            counter = Counter(subs.split())
+            
+
+            yield {"score": 0, "document" : "doc"}
