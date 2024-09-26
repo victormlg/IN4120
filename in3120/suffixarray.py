@@ -3,10 +3,12 @@
 
 import math
 import sys
-from bisect import bisect_left, insort
+from bisect import bisect_left
 from itertools import takewhile
 from typing import Any, Dict, Iterator, Iterable, Tuple, List
-from collections import Counter
+from collections import Counter, defaultdict
+
+from in3120.sieve import Sieve
 from .corpus import Corpus
 from .normalizer import Normalizer
 from .tokenizer import Tokenizer
@@ -42,24 +44,28 @@ class SuffixArray:
                 text += doc.get_field(field, '') + ' \0 '
             
             doc_id = doc.get_document_id()
-
-            text = self.__normalizer.canonicalize(text)
-
+            text = self.__normalize(text)
             spans = list(self.__tokenizer.spans(text))
 
-            for i, (start, _) in enumerate(spans) :
-                self.__haystack.append((doc_id, self.__normalize(text[start:])))
-                self.__suffixes.append((i, start)) # kanskje token index i stedet
+            self.__haystack.append((doc_id, text))
+            for start, _ in spans :
+                self.__suffixes.append((doc_id, start)) 
 
-        self.__suffixes.sort(key = lambda x : self.__haystack[x[0]][1])
+        self.__suffixes.sort(key = self.__get_substring)
+
+    def __get_substring(self, x) :
+        i, offset = x 
+        _, string = self.__haystack[i]
+        return string[offset:]
 
     def __normalize(self, buffer: str) -> str: #for query
         """
         Produces a normalized version of the given string. Both queries and documents need to be
         identically processed for lookups to succeed.
         """
-   
-        return self.__normalizer.normalize(buffer)
+
+        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
+        return " ".join([self.__normalizer.normalize(t) for t in tokens])
 
     def __binary_search(self, needle: str) -> int:
         """
@@ -71,23 +77,7 @@ class SuffixArray:
         prior to Python 3.10 due to how we represent the suffixes via (index, offset) tuples. Version 3.10
         added support for specifying a key.
         """
-
-        high = len(self.__haystack)-1 
-        low = 0
-
-        while (low <= high) :
-            s_idx = (low + high) //2
-
-            h_idx, _ = self.__suffixes[s_idx]
-            _, substring = self.__haystack[h_idx]
-
-            if (substring== needle) :
-                return s_idx
-            elif (substring < needle) :
-                low = s_idx +1
-            elif (substring > needle) :
-                high = s_idx -1
-        return low
+        return bisect_left(self.__suffixes, needle, key=self.__get_substring)
 
     def evaluate(self, query: str, options: dict) -> Iterator[Dict[str, Any]]:
         """
@@ -105,23 +95,41 @@ class SuffixArray:
         The results yielded back to the client are dictionaries having the keys "score" (int) and
         "document" (Document).
         """
-        hit_count = options["hit_count"]
-    
-        s_idx = self.__binary_search(self.__normalize(query))
+        hit_count = options['hit_count']
+        debug = options['debug']
 
-        h_idx, _ = self.__suffixes[s_idx]
-        de = self.__haystack[h_idx:h_idx+hit_count]
+        matches = []
+        query = self.__normalize(query)
+        index = self.__binary_search(query)-1
+        counter = defaultdict(int)
 
-        # print(f'query {query} should be located at index {index} in doc {doc_id}')
+        # if index >= len(self.__suffixes) :
+        #     # yield
+        #     return
         
+        subs = self.__get_substring(self.__suffixes[index])
+        while subs.startswith(query) :
+            index -=1
+            subs = self.__get_substring(self.__suffixes[index])
         
-        print(de)
+        index+=1
+        subs = self.__get_substring(self.__suffixes[index])
+        while index < len(self.__suffixes) and subs.startswith(query):
+            subs = self.__get_substring(self.__suffixes[index])
 
+            doc_id, _ = self.__suffixes[index]
+            matches.append((doc_id, subs))
+            counter[doc_id] +=1
 
-        # content[index:] 
+            index +=1
 
-        for subs in self.__haystack[h_idx:h_idx+hit_count] :
-            counter = Counter(subs.split())
-            
+        sieve = Sieve(len(matches))
 
-            yield {"score": 0, "document" : "doc"}
+        for doc_id, subs in matches :
+            document = self.__corpus.get_document(doc_id)
+            sieve.sift(counter[doc_id], document)
+        
+        for winner in list(sieve.winners())[:hit_count] :
+            score = winner[0]
+            document = winner[1]
+            yield {"score": score, "document": document}
