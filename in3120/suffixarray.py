@@ -103,33 +103,42 @@ class SuffixArray:
         index = self.__binary_search(query)-1
         counter = defaultdict(int)
 
-        # if index >= len(self.__suffixes) :
-        #     # yield
-        #     return
+        if not query : # if is an empty string
+            return
         
         subs = self.__get_substring(self.__suffixes[index])
-        while subs.startswith(query) :
+
+        while subs.startswith(query) : #moves backwards in case there are matches 
             index -=1
             subs = self.__get_substring(self.__suffixes[index])
+
+        if index+1 >= len(self.__suffixes) : # if last index and no match
+            return
         
         index+=1
         subs = self.__get_substring(self.__suffixes[index])
-        while index < len(self.__suffixes) and subs.startswith(query):
-            subs = self.__get_substring(self.__suffixes[index])
+
+        while subs.startswith(query): # finds and counts all documents that match with the query
 
             doc_id, _ = self.__suffixes[index]
-            matches.append((doc_id, subs))
+            matches.append(doc_id)
             counter[doc_id] +=1
 
             index +=1
+            if index < len(self.__suffixes) :
+                subs = self.__get_substring(self.__suffixes[index])
+            else :
+                subs = "" 
+
+        if not matches : # if no matches
+            return
 
         sieve = Sieve(len(matches))
 
-        for doc_id, subs in matches :
-            document = self.__corpus.get_document(doc_id)
-            sieve.sift(counter[doc_id], document)
+        for doc_id in matches :
+            sieve.sift(counter[doc_id], doc_id)
         
         for winner in list(sieve.winners())[:hit_count] :
             score = winner[0]
-            document = winner[1]
+            document = self.__corpus.get_document(winner[1])
             yield {"score": score, "document": document}
