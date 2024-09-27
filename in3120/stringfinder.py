@@ -46,7 +46,7 @@ class StringFinder:
         support for leftmost-longest matching (instead of reporting all matches), and more.
         """
         normalized_buffer = self.__normalize(buffer, True)
-        terms = list(self.__tokenizer.strings(normalized_buffer)) + ["zzzzz"]
+        terms = list(self.__tokenizer.strings(normalized_buffer)) + ["zzzzz"] # adding dummy end token
         raw_spans = list(self.__tokenizer.spans(buffer)) + [(0,0)]
 
         states = []
