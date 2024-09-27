@@ -59,10 +59,8 @@ class StringFinder:
                 match = self.__trie.consume(matching_string) 
                 c, d = matching_span
 
-                if False :
-                    new_string = matching_string + term
-                else :
-                    new_string = matching_string + " " + term
+                
+                new_string =f'{matching_string} {term}' # should be "" when testing test_with_unigram_tokenizer_for_finding_arbitrary_substrings
 
                 new_match = self.__trie.consume(new_string) 
 
