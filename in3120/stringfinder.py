@@ -45,39 +45,44 @@ class StringFinder:
         In a serious application we'd add more lookup/evaluation features, e.g., support for prefix matching,
         support for leftmost-longest matching (instead of reporting all matches), and more.
         """
-        terms, spans = self.__preprocess(buffer)
+        normalized_buffer = self.__normalize(buffer, True)
+        terms = list(self.__tokenizer.strings(normalized_buffer)) + ["zzzzz"]
+        raw_spans = list(self.__tokenizer.spans(buffer)) + [(0,0)]
 
         states = []
         
         for i, term in enumerate(terms):
-            a, b = spans[i]
+            a, b = raw_spans[i]
 
 
-            for matching_string, matching_span in states :
+            for matching_string, matching_span in states.copy() :
                 match = self.__trie.consume(matching_string) 
                 c, d = matching_span
 
-                new_string = f'{matching_string} {term}'
-                new_match = self.__trie.consume(new_string) 
+                if False :
+                    new_string = matching_string + term
+                else :
+                    new_string = matching_string + " " + term
 
+                new_match = self.__trie.consume(new_string) 
 
                 if match.is_final() :
                     states.remove((matching_string, (c,d)))
-                    yield {"surface" : self.__tokenize(buffer[c:d]), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
+                    yield {"surface" : self.__normalize(buffer[c:d], False), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
                 if new_match :
                     states.append((new_string, (c, b)))
-                    
+                    states.remove((matching_string, (c,d)))
+ 
             match = self.__trie.consume(term)
 
-            if match: 
+            if match : 
                 states.append((term, (a,b)))
             
-    def __preprocess(self, buffer: str) :
-        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
-        terms = [self.__normalizer.normalize(t) for t in tokens] + ["zzzzz"]
-        spans = list(self.__tokenizer.spans(buffer)) + [(0,0)]
-        return terms, spans
 
-    def __tokenize(self, buffer: str) :
-        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
-        return " ".join(tokens)
+    def __normalize(self, buffer: str, normalize: bool) -> str :
+        buffer = self.__normalizer.canonicalize(buffer)
+        normalized_spans = self.__tokenizer.spans(buffer)
+        if normalize :
+            return self.__tokenizer.join([(self.__normalizer.normalize(buffer[a:b]), (a,b)) for a,b in normalized_spans])
+       
+        return self.__tokenizer.join([(buffer[a:b], (a,b)) for a,b in normalized_spans])
