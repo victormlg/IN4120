@@ -69,7 +69,8 @@ class StringFinder:
                     yield {"surface" : self.__normalize(buffer[c:d], False), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
                 if new_match :
                     states.append((new_string, (c, b)))
-                    states.remove((matching_string, (c,d)))
+                    if (matching_string, (c,d)) in states :
+                        states.remove((matching_string, (c,d)))
  
             match = self.__trie.consume(term)
 
