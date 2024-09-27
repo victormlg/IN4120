@@ -45,4 +45,34 @@ class StringFinder:
         In a serious application we'd add more lookup/evaluation features, e.g., support for prefix matching,
         support for leftmost-longest matching (instead of reporting all matches), and more.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        terms = self.get_terms(buffer)
+
+        states = []
+        matches = []
+        
+        for term in terms :
+
+            for matching_string in states :
+                match = self.__trie.consume(matching_string) 
+
+                new = f'{matching_string} {term}'
+                new_match = self.__trie.consume(new) 
+
+
+                if match.is_final() :
+                    matches.append(matching_string)
+                    states.remove(matching_string)
+                    # yield {"match" : matching_string, "surface" : "", "meta" : "", "span" : ""}
+                if new_match :
+                    states.append(new)
+                    
+            match = self.__trie.consume(term)
+
+            if match: 
+                states.append(term)
+
+        print(matches)
+            
+    def get_terms(self, buffer: str) -> Iterator[str]:
+        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
+        return [self.__normalizer.normalize(t) for t in tokens]
