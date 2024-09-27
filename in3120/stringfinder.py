@@ -45,34 +45,39 @@ class StringFinder:
         In a serious application we'd add more lookup/evaluation features, e.g., support for prefix matching,
         support for leftmost-longest matching (instead of reporting all matches), and more.
         """
-        terms = self.get_terms(buffer)
+        terms, spans = self.__preprocess(buffer)
 
         states = []
-        matches = []
         
-        for term in terms :
+        for i, term in enumerate(terms):
+            a, b = spans[i]
 
-            for matching_string in states :
+
+            for matching_string, matching_span in states :
                 match = self.__trie.consume(matching_string) 
+                c, d = matching_span
 
                 new = f'{matching_string} {term}'
                 new_match = self.__trie.consume(new) 
 
 
                 if match.is_final() :
-                    matches.append(matching_string)
-                    states.remove(matching_string)
-                    # yield {"match" : matching_string, "surface" : "", "meta" : "", "span" : ""}
+                    states.remove((matching_string, (c,d)))
+                    yield {"surface" : self.__tokenize(buffer[c:d]), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
                 if new_match :
-                    states.append(new)
+                    states.append((new, (c, b)))
                     
             match = self.__trie.consume(term)
 
             if match: 
-                states.append(term)
-
-        print(matches)
+                states.append((term, (a,b)))
             
-    def get_terms(self, buffer: str) -> Iterator[str]:
+    def __preprocess(self, buffer: str) :
         tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
-        return [self.__normalizer.normalize(t) for t in tokens]
+        terms = [self.__normalizer.normalize(t) for t in tokens] + ["zzzzz"]
+        spans = list(self.__tokenizer.spans(buffer)) + [(0,0)]
+        return terms, spans
+
+    def __tokenize(self, buffer: str) :
+        tokens = self.__tokenizer.strings(self.__normalizer.canonicalize(buffer))
+        return " ".join(tokens)
