@@ -57,15 +57,15 @@ class StringFinder:
                 match = self.__trie.consume(matching_string) 
                 c, d = matching_span
 
-                new = f'{matching_string} {term}'
-                new_match = self.__trie.consume(new) 
+                new_string = f'{matching_string} {term}'
+                new_match = self.__trie.consume(new_string) 
 
 
                 if match.is_final() :
                     states.remove((matching_string, (c,d)))
                     yield {"surface" : self.__tokenize(buffer[c:d]), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
                 if new_match :
-                    states.append((new, (c, b)))
+                    states.append((new_string, (c, b)))
                     
             match = self.__trie.consume(term)
 
