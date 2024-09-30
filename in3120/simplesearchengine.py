@@ -46,4 +46,46 @@ class SimpleSearchEngine:
         N is inferred from the query via the "match_threshold" (float) option, and the maximum number of documents
         to return to the client is controlled via the "hit_count" (int) option.
         """
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+
+        query_terms = list(self.__inverted_index.get_terms(query))
+        match_threshold = options["match_threshold"]
+        hit_count = options["hit_count"]
+
+        M = len(query_terms)
+        N = max(1, min(M, int(match_threshold * M)))
+
+        counter = Counter()
+        query_counts = Counter(query_terms)
+
+        for term in query_terms :
+
+            doc_ids = [posting.document_id for posting in self.__inverted_index[term]]
+            counter.update(doc_ids) #counts all doc_id occurences across the posting lists for the terms in the query
+
+        top_doc_ids = [doc_id for doc_id, count in counter.items() if count >= N] # extracts doc_id that appear more than N times
+        sieve = Sieve(len(top_doc_ids))
+
+        for term in query_terms :
+            for posting in self.__inverted_index[term] :
+
+                if posting.document_id in top_doc_ids :
+
+                    ranker.reset(posting.document_id)
+                    ranker.update(term, query_counts[term], posting)
+                    score = ranker.evaluate()
+                    sieve.sift(score, posting.document_id)
+
+        for winner in list(sieve.winners())[:hit_count] :
+            score = winner[0]
+            document = self.__corpus.get_document(winner[1])
+            yield {"score": score, "document": document}
+
+"""
+for each term in query (of length M):
+    count occurences of docs for every term
+
+prune documents to only get documents that appears in N out of the M terms of the query in the inverted index
+rank them and sieve them
+yield back hit_count best documents {score: float, document: Document}
+"""
