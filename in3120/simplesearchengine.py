@@ -54,7 +54,7 @@ class SimpleSearchEngine:
 
         M = len(query_terms)
         N = max(1, min(M, int(match_threshold * M)))
-
+        
         counter = Counter()
         query_counts = Counter(query_terms)
 
@@ -66,7 +66,7 @@ class SimpleSearchEngine:
         top_doc_ids = [doc_id for doc_id, count in counter.items() if count >= N] # extracts doc_id that appear more than N times
         sieve = Sieve(len(top_doc_ids))
 
-        for term in query_terms :
+        for term in query_counts.keys() :
             for posting in self.__inverted_index[term] :
 
                 if posting.document_id in top_doc_ids :
