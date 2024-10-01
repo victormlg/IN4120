@@ -49,37 +49,100 @@ class SimpleSearchEngine:
         # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
 
         query_terms = list(self.__inverted_index.get_terms(query))
+        query_counts = Counter(query_terms)
         match_threshold = options["match_threshold"]
         hit_count = options["hit_count"]
 
         M = len(query_terms)
         N = max(1, min(M, int(match_threshold * M)))
-        
+
         counter = Counter()
-        query_counts = Counter(query_terms)
 
         for term in query_terms :
-
             doc_ids = [posting.document_id for posting in self.__inverted_index[term]]
             counter.update(doc_ids) #counts all doc_id occurences across the posting lists for the terms in the query
 
-        top_doc_ids = [doc_id for doc_id, count in counter.items() if count >= N] # extracts doc_id that appear more than N times
-        sieve = Sieve(len(top_doc_ids))
+        N_of_M_doc_ids = [doc_id for doc_id, count in counter.items() if count >= N]
+        posting_iterators = [iter(self.__inverted_index[term]) for term in query_terms]
 
-        for term in query_counts.keys() :
-            for posting in self.__inverted_index[term] :
 
-                if posting.document_id in top_doc_ids :
+        not_empty = [True] 
+        sieve = Sieve(len(N_of_M_doc_ids)) 
 
+        while all(not_empty) : #is this DAAT?
+            not_empty = []
+
+            for posting_it, term in zip(posting_iterators, query_terms) :
+                posting = next(posting_it, False)
+                not_empty.append(posting)
+
+                if posting and posting.document_id in N_of_M_doc_ids:
                     ranker.reset(posting.document_id)
                     ranker.update(term, query_counts[term], posting)
                     score = ranker.evaluate()
                     sieve.sift(score, posting.document_id)
-
+        
         for winner in list(sieve.winners())[:hit_count] :
             score = winner[0]
             document = self.__corpus.get_document(winner[1])
             yield {"score": score, "document": document}
+
+
+
+
+
+        while True :
+            min([next(it) for it in posting_iterators])
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # query_terms = list(self.__inverted_index.get_terms(query))
+        # match_threshold = options["match_threshold"]
+        # hit_count = options["hit_count"]
+
+        # M = len(query_terms)
+        # N = max(1, min(M, int(match_threshold * M)))
+
+        # counter = Counter()
+        # query_counts = Counter(query_terms)
+
+        # for term in query_terms :
+
+        #     doc_ids = [posting.document_id for posting in self.__inverted_index[term]]
+        #     counter.update(doc_ids) #counts all doc_id occurences across the posting lists for the terms in the query
+
+        # top_doc_ids = [doc_id for doc_id, count in counter.items() if count >= N] # extracts doc_id that appear more than N times
+        # sieve = Sieve(len(top_doc_ids))
+
+        # for term in query_counts.keys() :
+        #     for posting in self.__inverted_index[term] :
+
+        #         if posting.document_id in top_doc_ids :
+
+        #             ranker.reset(posting.document_id)
+        #             ranker.update(term, query_counts[term], posting)
+        #             score = ranker.evaluate()
+        #             sieve.sift(score, posting.document_id)
+
+        # for winner in list(sieve.winners())[:hit_count] :
+        #     score = winner[0]
+        #     document = self.__corpus.get_document(winner[1])
+        #     yield {"score": score, "document": document}
 
 """
 for each term in query (of length M):
@@ -88,4 +151,5 @@ for each term in query (of length M):
 prune documents to only get documents that appears in N out of the M terms of the query in the inverted index
 rank them and sieve them
 yield back hit_count best documents {score: float, document: Document}
-"""
+"""     
+
