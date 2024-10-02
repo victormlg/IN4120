@@ -69,6 +69,10 @@ class SimpleSearchEngine:
             matches = [p if p and counter[p.document_id] >= N else None for i, p in enumerate(current_postings)]
             current_postings = [next(posting_list_iters[i], None) if p and counter[p.document_id] >= N  else p for i, p in enumerate(current_postings)]
 
+            # IMPLEMENT ONE-HOT-ENCODING
+            # Ex:
+            # 1-out-of-M: [1,2] -> [[1, None], [None, 2]]
+
             doc_id = next((p.document_id for p in matches if p is not None), None)
             if doc_id is not None: # if there is a match
                 # rank and sieve for doc_id
