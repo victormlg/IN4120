@@ -53,63 +53,38 @@ class SimpleSearchEngine:
         query_terms = list(self.__inverted_index.get_terms(query))
         query_counts = Counter(query_terms)
 
-        M = len(query_counts.keys())
+        M = len(query_counts)
         N = max(1, min(M, int(options["match_threshold"] * M)))
         
         # p means posting
-        posting_list_iters = [self.__inverted_index[term] for term in query_counts.keys()]
+        posting_list_iters = [self.__inverted_index[term] for term in query_counts]
         current_postings = []
         for it in posting_list_iters :
             current_postings.append(next(it, None))
 
-        def match(posting_list_iters, i, p, matches) :
-            new_p = next(posting_list_iters[i], None)
-            matches.append(p)
-
-            # term = query_terms[i]
-            # multiplicity = query_counts[term]
-
-            # ranker.reset(p.document_id)
-            # ranker.update(term, multiplicity, p)
-            # sieve.sift(ranker.evaluate(), p.document_id)
-
-            return new_p
-
         while sum([bool(p) for p in current_postings]) >= N :
 
-
-            # print("current:", current_postings)
             # finds matching postings and "nexts" them 
             counter = Counter([p.document_id if p else None for p in current_postings])
             matches = [p if p and counter[p.document_id] >= N else None for i, p in enumerate(current_postings)]
             current_postings = [next(posting_list_iters[i], None) if p and counter[p.document_id] >= N  else p for i, p in enumerate(current_postings)]
 
-            # rank and sieve matches for a matching doc_id
-            # print("match:",matches)
-
             doc_id = next((p.document_id for p in matches if p is not None), None)
-            if doc_id :
+            if doc_id is not None: # if there is a match
+                # rank and sieve for doc_id
                 ranker.reset(doc_id)
                 [ranker.update(query_terms[i], query_counts[query_terms[i]], p) if p else None for i, p in enumerate(matches)]
                 sieve.sift(ranker.evaluate(), doc_id)
 
-            # finds smallest postings and "nexts" them
-            if not any(matches) : # if no matches
+            else :
+                # finds smallest postings and "nexts" them
                 min_p = min(current_postings, key= lambda x : x.document_id if x else float('inf'))
                 current_postings = [next(posting_list_iters[i], None) if p and min_p.document_id == p.document_id else p for i, p in enumerate(current_postings)]
-
-            
-        # m = []
         
         for score, document_id in sieve.winners() :
             document = self.__corpus.get_document(document_id)
             yield {"score": score, "document": document}
 
-            # m.append({"score": score, "document": document_id})
-        
-        # print(m)
-        # print(len(m))
-        # return m
 
 
 
