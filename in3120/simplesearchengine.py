@@ -50,53 +50,67 @@ class SimpleSearchEngine:
         to return to the client is controlled via the "hit_count" (int) option.
         """
         # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
-
+        sieve = Sieve(options["hit_count"])
         query_terms = list(self.__inverted_index.get_terms(query))
         query_counts = Counter(query_terms)
-        match_threshold = options["match_threshold"]
-        hit_count = options["hit_count"]
 
+
+        match_threshold = options["match_threshold"]
         M = len(query_terms)
         N = max(1, min(M, int(match_threshold * M)))
         
+
+        iterators = [self.__inverted_index[term] for term in query_terms.keys()]
         window = []
-        its = [self.__inverted_index[term] for term in query_counts.keys()]
-        for it in its :
-            window.append(next(it, None), its)
+        for it in iterators :
+            window.append(next(it, None))
 
 
-        sieve = Sieve(hit_count)
        
-       
-        while len(window) >= N : 
+        while sum([bool(p) for p in window]) >= N : 
             
             # finds minimum and "nexts" them
-            min_p, _ = min(window, key= lambda x : x[0].document_id)
+            min_p = min(window, key= lambda x : x.document_id)
+            window = [next(iterators[i], None) if min_p.document_id == p.document_id else p for i, p in enumerate(window)]
 
-            new_window = []
-            for p, it in window :
+            """new_window = []
+            for i, p in enumerate(window) :
                 if min_p.document_id == p.document_id :
-                    new_p = next(it, None)
-                    new_window.append((new_p, it))
+                    new_p = next(iterators[i], None)
+                    new_window.append(new_p)
                 else :
-                    new_window.append((p, it))
-            window = new_window
+                    new_window.append(p)
+            window = new_window"""
+
+
    
             # finds matches and "nexts" them + rank and sieve
-            counter = Counter([p.document_id for p, _ in window])
-            new_window = []
-            for p, it in window :
+            counter = Counter([p.document_id for p in window])
+            window = [match(iterators, i) if counter[p.document_id] >= N  else p for i, p in enumerate(window)]
+            """new_window = []
+            for i, p in enumerate(window) :
                 if counter[p.document_id] >= N :
-                    new_p = next(it, None)
-                    new_window.append((new_p, it))
+                    new_p = next(iterators[i], None)
+                    new_window.append(new_p)
 
                     ranker.reset(p.document_id)
                     ranker.update(None, query_counts[None], p)
                     sieve.sift(ranker.evaluate(), p.document_id)
 
                 else :
-                    new_window.append((new_p, it))
-            window = new_window
+                    new_window.append(p)
+            window = new_window"""
+ 
+        def match(iterators, i) :
+            p = next(iterators[i], None)
+            term = query_terms[i]
+            multiplicity = query_counts[term]
+
+            ranker.reset(p.document_id)
+            ranker.update(term, multiplicity, p)
+            sieve.sift(ranker.evaluate(), p.document_id)
+
+            return p
 
 
 
