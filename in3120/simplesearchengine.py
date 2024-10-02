@@ -60,49 +60,53 @@ class SimpleSearchEngine:
         N = max(1, min(M, int(match_threshold * M)))
         
         window = []
-        its = [self.__inverted_index[term], term for term in query_counts.keys()]
-        for it, term in its :
-            window.append(next(its, False), its, term)
+        its = [self.__inverted_index[term] for term in query_counts.keys()]
+        for it in its :
+            window.append(next(it, None), its)
 
 
         sieve = Sieve(hit_count)
-        i=0
-        while all(window) :
-            pivot, _, _ = sorted(window, key= lambda x : x[0].document_id)[i]
-            copy = window.copy()
-
-            # increments posting if lower than pivot
-            for posting, it, term in window :
-                if posting and posting.document_id < pivot.document_id :
-                    next_posting = next(it, False)
-                    window.remove((posting, it, term))
-                    window.append((next_posting, it, term))
-
-            # checks for match in window
-            counter = Counter([posting.document_id for (posting, _, _) in window])
-            for posting, it, term in window.copy() :
-                if posting and counter[posting.document_id] >= N :
-                    #compute score and add to sieve:
-                    ranker.reset(posting.document_id)
-                    ranker.update(term, query_counts[term], posting)
-                    score = ranker.evaluate()
-                    sieve.sift(score, posting.document_id)
-                    # increments posting
-                    next_posting = next(it, False)
-                    window.remove((posting, it, term))
-                    window.append((next_posting, it, term))
-                    
-
-            i+=1
+       
+       
+        while len(window) >= N : 
             
-            # checks if window has been modified, if not: pivot is next smallest posting
-            if copy != window :
-                i=0
+            # finds minimum and "nexts" them
+            min_p, _ = min(window, key= lambda x : x[0].document_id)
+
+            new_window = []
+            for p, it in window :
+                if min_p.document_id == p.document_id :
+                    new_p = next(it, None)
+                    new_window.append((new_p, it))
+                else :
+                    new_window.append((p, it))
+            window = new_window
+   
+            # finds matches and "nexts" them + rank and sieve
+            counter = Counter([p.document_id for p, _ in window])
+            new_window = []
+            for p, it in window :
+                if counter[p.document_id] >= N :
+                    new_p = next(it, None)
+                    new_window.append((new_p, it))
+
+                    ranker.reset(p.document_id)
+                    ranker.update(None, query_counts[None], p)
+                    sieve.sift(ranker.evaluate(), p.document_id)
+
+                else :
+                    new_window.append((new_p, it))
+            window = new_window
+
+
+
+
+
     
-        for score, doc_id in  sieve.winners() :
-            document = self.__corpus.get_document(doc_id)
-            yield {"score": score, "document": document}
 
 
 
         
+
+        
+
