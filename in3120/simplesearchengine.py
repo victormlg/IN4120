@@ -49,60 +49,22 @@ class SimpleSearchEngine:
         N is inferred from the query via the "match_threshold" (float) option, and the maximum number of documents
         to return to the client is controlled via the "hit_count" (int) option.
         """
-        # raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
         sieve = Sieve(options["hit_count"])
         query_terms = list(self.__inverted_index.get_terms(query))
         query_counts = Counter(query_terms)
 
-
-        match_threshold = options["match_threshold"]
         M = len(query_terms)
-        N = max(1, min(M, int(match_threshold * M)))
+        N = max(1, min(M, int(options["match_threshold"] * M)))
         
+        # p means posting
+        posting_list_iters = [self.__inverted_index[term] for term in query_counts.keys()]
+        current_postings = []
+        for it in posting_list_iters :
+            current_postings.append(next(it, None))
 
-        iterators = [self.__inverted_index[term] for term in query_terms.keys()]
-        window = []
-        for it in iterators :
-            window.append(next(it, None))
+        def match(posting_list_iters, i, p) :
+            new_p = next(posting_list_iters[i], None)
 
-
-       
-        while sum([bool(p) for p in window]) >= N : 
-            
-            # finds minimum and "nexts" them
-            min_p = min(window, key= lambda x : x.document_id)
-            window = [next(iterators[i], None) if min_p.document_id == p.document_id else p for i, p in enumerate(window)]
-
-            """new_window = []
-            for i, p in enumerate(window) :
-                if min_p.document_id == p.document_id :
-                    new_p = next(iterators[i], None)
-                    new_window.append(new_p)
-                else :
-                    new_window.append(p)
-            window = new_window"""
-
-
-   
-            # finds matches and "nexts" them + rank and sieve
-            counter = Counter([p.document_id for p in window])
-            window = [match(iterators, i) if counter[p.document_id] >= N  else p for i, p in enumerate(window)]
-            """new_window = []
-            for i, p in enumerate(window) :
-                if counter[p.document_id] >= N :
-                    new_p = next(iterators[i], None)
-                    new_window.append(new_p)
-
-                    ranker.reset(p.document_id)
-                    ranker.update(None, query_counts[None], p)
-                    sieve.sift(ranker.evaluate(), p.document_id)
-
-                else :
-                    new_window.append(p)
-            window = new_window"""
- 
-        def match(iterators, i) :
-            p = next(iterators[i], None)
             term = query_terms[i]
             multiplicity = query_counts[term]
 
@@ -110,9 +72,24 @@ class SimpleSearchEngine:
             ranker.update(term, multiplicity, p)
             sieve.sift(ranker.evaluate(), p.document_id)
 
-            return p
+            return new_p
 
+        while sum([bool(p) for p in current_postings]) >= N : 
 
+            prev = current_postings.copy ()
+
+            # finds matching postings and "nexts" them + rank and sieve
+            # while prev != current_postings ; in case several matches på rad
+            counter = Counter([p.document_id if p else None for p in current_postings])
+            current_postings = [match(posting_list_iters, i, p) if p and counter[p.document_id] >= N  else p for i, p in enumerate(current_postings)]
+
+            # finds smallest postings and "nexts" them
+            min_p = min(current_postings, key= lambda x : x.document_id if x else float('inf'))
+            current_postings = [next(posting_list_iters[i], None) if p and min_p.document_id == p.document_id else p for i, p in enumerate(current_postings)]
+
+        for score, document_id in sieve.winners() :
+            document = self.__corpus.get_document(document_id)
+            yield {"score": score, "document": document}
 
 
 
