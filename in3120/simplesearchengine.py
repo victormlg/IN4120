@@ -64,30 +64,32 @@ class SimpleSearchEngine:
 
         while sum([bool(p) for p in current_postings]) >= N :
 
-            # finds matching postings and "nexts" them 
+            # finds matching postings
             counter = Counter([p.document_id if p else None for p in current_postings])
             matches = [p if p and counter[p.document_id] >= N else None for i, p in enumerate(current_postings)]
-            current_postings = [next(posting_list_iters[i], None) if p and counter[p.document_id] >= N  else p for i, p in enumerate(current_postings)]
+        
+            # one hot encoding:
+            classes = set([p.document_id for p in matches if p])
+            one_hot_match_list = [[p if p and p.document_id==cl else None for p in matches] for cl in classes]
 
-            # IMPLEMENT ONE-HOT-ENCODING
-            # Ex:
-            # 1-out-of-M: [1,2] -> [[1, None], [None, 2]]
+            for one_hot_matches in one_hot_match_list :
+                # gets the doc_id corresponding to the one_hot_matches
+                doc_id = set([p.document_id for p in one_hot_matches if p]).pop()
 
-            doc_id = next((p.document_id for p in matches if p is not None), None)
-            if doc_id is not None: # if there is a match
                 # rank and sieve for doc_id
                 ranker.reset(doc_id)
-                [ranker.update(query_terms[i], query_counts[query_terms[i]], p) if p else None for i, p in enumerate(matches)]
+                [ranker.update(query_terms[i], query_counts[query_terms[i]], p) if p else None for i, p in enumerate(one_hot_matches)]
                 sieve.sift(ranker.evaluate(), doc_id)
 
-            else :
-                # finds smallest postings and "nexts" them
-                min_p = min(current_postings, key= lambda x : x.document_id if x else float('inf'))
-                current_postings = [next(posting_list_iters[i], None) if p and min_p.document_id == p.document_id else p for i, p in enumerate(current_postings)]
+            min_p = min(current_postings, key= lambda x : x.document_id if x else float('inf'))
+            current_postings = [next(posting_list_iters[i], None) if p and min_p.document_id == p.document_id else p for i, p in enumerate(current_postings)]
         
         for score, document_id in sieve.winners() :
             document = self.__corpus.get_document(document_id)
             yield {"score": score, "document": document}
+
+    def one_hot_encode(self) :
+        return
 
 
 
