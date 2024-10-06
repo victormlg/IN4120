@@ -57,6 +57,7 @@ class SimpleSearchEngine:
         N = max(1, min(M, int(options["match_threshold"] * M)))
         
         # p means posting
+        # creates a list of posting iterators for each term
         posting_list_iters = [self.__inverted_index[term] for term in query_counts]
         current_postings = []
         for it in posting_list_iters :
@@ -87,9 +88,6 @@ class SimpleSearchEngine:
         for score, document_id in sieve.winners() :
             document = self.__corpus.get_document(document_id)
             yield {"score": score, "document": document}
-
-    def one_hot_encode(self) :
-        return
 
 
 
