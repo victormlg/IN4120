@@ -54,15 +54,19 @@ class SparseDocumentVector:
         """
         Returns the length (L^2 norm, also called the Euclidian norm) of the vector.
         """
-        return sqrt(sum([v**2 for v in self._values.values()]))
+        self._length = sqrt(sum([v**2 for v in self._values.values()]))
+        return self._length
 
     def normalize(self) -> None:
         """
         Divides all weights by the length of the vector, thus rescaling it to
         have unit length.
         """
-        length = self.get_length()
-        self._values = {k:(v/length) for k,v in self._values.items()}
+        if not self._length :
+            self.get_length()
+
+        self._values = {k:(v/self._length) for k,v in self._values.items()}
+        self._length = self.get_length()
 
     def top(self, count: int) -> Iterable[Tuple[str, float]]:
         """
@@ -80,12 +84,14 @@ class SparseDocumentVector:
         """
         top = self.top(count)
         self._values = {k:v for k,v in self._values.items() if (k,v) in top}
+        self._length = self.get_length()
 
     def scale(self, factor: float) -> None:
         """
         Multiplies every vector component by the given factor.
         """
         self._values = {k:v*factor for k,v in self._values.items()}
+        self._length = self.get_length()
 
     def dot(self, other: SparseDocumentVector) -> float:
         """
@@ -99,7 +105,12 @@ class SparseDocumentVector:
         Returns the cosine of the angle between this vector and the other vector.
         See also https://en.wikipedia.org/wiki/Cosine_similarity.
         """
-        length1, length2 = self.get_length(), other.get_length()
+        if self._length is None :
+            self.get_length()
+        if other._length is None :
+            other.get_length()
+            
+        length1, length2 = self._length, other._length
 
         if length1 == 0 or length2 == 0 :
             return 0
