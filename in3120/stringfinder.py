@@ -14,9 +14,9 @@ class StringFinder:
     that are also present in a given text buffer. I.e., in a sense computes the "intersection" or "overlap"
     between the dictionary and the text buffer.
 
-    Uses a trie-walk algorithm similar to the Aho-Corasick algorithm with some simplifications and some minor
-    NLP extensions. The running time of this algorithm is virtually independent of the size of the dictionary,
-    and linear in the length of the buffer we are searching in.
+    Uses a trie-walk algorithm similar to the Aho-Corasick algorithm with some simplifications (we ignore the
+    part about failure transitions) and some minor NLP extensions. The running time of this algorithm is virtually
+    independent of the size of the dictionary, and linear in the length of the buffer we are searching in.
 
     The tokenizer we use when scanning the input buffer is assumed to be the same as the one that was used
     when adding strings to the trie.
@@ -45,43 +45,52 @@ class StringFinder:
         In a serious application we'd add more lookup/evaluation features, e.g., support for prefix matching,
         support for leftmost-longest matching (instead of reporting all matches), and more.
         """
-        normalized_buffer = self.__normalize(buffer, True)
-        terms = list(self.__tokenizer.strings(normalized_buffer)) + ["zzzzz"] # adding dummy end token
-        raw_spans = list(self.__tokenizer.spans(buffer)) + [(0,0)]
+        # The set of currently explored states. We represent a state as a triple consisting
+        # of (a) a node in the trie (that represents where in the trie we are after having
+        # consumed zero or more characters), (b) an index (that represents the position into
+        # the original buffer where the state was "born"), and (c) a string (that represents
+        # the symbols consumed so far to get to the current state.) Item (a) is what we advance
+        # along the way, item (b) is needed so that we know where we first started if/when a
+        # match is found, and item (c) is needed so that we can differentiate between the surface
+        # form of the match and the (possibly heavily normalized) base form of the match.
+        live_states: List[Tuple[Trie, int, str]] = []
 
-        states = []
-        
-        for i, term in enumerate(terms):
-            a, b = raw_spans[i]
+        # Where did the previous token end? Assume that tokens are produced sorted in left-to-right
+        # order.
+        previous_end = -1
 
+        # Only consider matches that start on token boundaries.
+        for string, (begin, end) in self.__tokenizer.tokens(buffer):
 
-            for matching_string, matching_span in states.copy() :
-                match = self.__trie.consume(matching_string) 
-                c, d = matching_span
+            # Mirror how the trie was built, ensuring we compare apples to apples.
+            # Canonicalize on a per token basis instead of doing the whole buffer upfront,
+            # to ensure that offsets are retained and the ranges we report back make
+            # sense to the client.
+            string = self.__normalizer.normalize(self.__normalizer.canonicalize(string))
 
-                
-                new_string = matching_string + " " + term  # should be "" when testing test_with_unigram_tokenizer_for_finding_arbitrary_substrings
+            # Is this token "connected to" the previous token, in the sense of the two being
+            # crammed together with nothing separating them? Some languages, e.g., Japanese or
+            # Chinese, don't use whitespace between tokens.
+            is_connected, previous_end = (previous_end > 0) and (begin == previous_end), end
 
-                new_match = self.__trie.consume(new_string) 
+            # Inject a space for the currently live states, if needed. Prune away states that
+            # don't survive.
+            if not is_connected:
+                live_states = [(child, _, m + " ") for s, _, m in live_states if (child := s.consume(" "))]
 
-                if match.is_final() :
-                    states.remove((matching_string, (c,d)))
-                    yield {"surface" : self.__normalize(buffer[c:d], False), "span" : (c,d), "match" : matching_string, "meta" : match.get_meta()}
-                if new_match :
-                    states.append((new_string, (c, b)))
-                    if (matching_string, (c,d)) in states :
-                        states.remove((matching_string, (c,d)))
- 
-            match = self.__trie.consume(term)
+            # Consider this token a potential start for a match.
+            live_states.append((self.__trie, begin, ""))
 
-            if match : 
-                states.append((term, (a,b)))
-            
+            # Advance all currently live states with the current (normalized) token. Prune away
+            # states that don't survive.
+            live_states = [(child, _, m + string) for s, _, m in live_states if (child := s.consume(string))]
 
-    def __normalize(self, buffer: str, normalize: bool) -> str :
-        buffer = self.__normalizer.canonicalize(buffer)
-        normalized_spans = self.__tokenizer.spans(buffer)
-        if normalize :
-            return self.__tokenizer.join([(self.__normalizer.normalize(buffer[a:b]), (a,b)) for a,b in normalized_spans])
-       
-        return self.__tokenizer.join([(buffer[a:b], (a,b)) for a,b in normalized_spans])
+            # Report matches, if any, that end on the token we just consumed. Use the
+            # tokenizer to possibly space-normalize the surface form we emit. If the client
+            # requires the exact surface form and its location in the input buffer, they can
+            # do that using the returned span.
+            for s, b, m in filter(lambda triple: triple[0].is_final(), live_states):
+                yield {"match": m,
+                       "meta": s.get_meta(),
+                       "surface": self.__tokenizer.join(self.__tokenizer.tokens(buffer[b:end])),
+                       "span": (b, end)}

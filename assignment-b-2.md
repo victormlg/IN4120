@@ -1,6 +1,6 @@
 # Assignment B-2
 
-**Deadline:** TBA
+**Deadline:** 2024-09-27
 
 The purpose of this assignment is to implement the core idea outlined in [the paper by Shang and Merrett](./papers/tries-for-approximate-string-matching.pdf), that shows how to reasonably efficiently compute the bounded edit distance between a query string and a large collection of candidate strings. The collection of candidate strings are represented in a [trie](./slides/strings-galore.pdf). For example, for the query _banana_ I should get back the _n_ strings in my string collection that have the smallest edit distance to _banana_. We can bound the edit distance, so that we only report matches that are less than or equal to _k_ edits away from the query string. Imposing such an upper bound allows us to prune down the search space and evaluate far fewer candidates than otherwise needed.
 
@@ -45,11 +45,12 @@ test_exact_match (test_editsearchengine.TestEditSearchEngine.test_exact_match) .
 test_first_n (test_editsearchengine.TestEditSearchEngine.test_first_n) ... ok
 test_hit_count (test_editsearchengine.TestEditSearchEngine.test_hit_count) ... ok
 test_invalid_scoring_function (test_editsearchengine.TestEditSearchEngine.test_invalid_scoring_function) ... ok
+test_normalization_and_whitespace (test_editsearchengine.TestEditSearchEngine.test_normalization_and_whitespace) ... ok
 test_scores_are_sorted (test_editsearchengine.TestEditSearchEngine.test_scores_are_sorted) ... ok
 test_upper_bound (test_editsearchengine.TestEditSearchEngine.test_upper_bound) ... ok
 
 ----------------------------------------------------------------------
-Ran 9 tests in 0.020s
+Ran 10 tests in 0.006s
 
 OK
 ```
