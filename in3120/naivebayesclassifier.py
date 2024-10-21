@@ -52,18 +52,19 @@ class NaiveBayesClassifier:
         """
         # number of documents of class c / total number of documents
         N=0 
-        for _, corpus in training_set :
+        for corpus in training_set.values() :
             N += len(corpus)
-        for c, corpus in training_set :
+        for c, corpus in training_set.items() :
             self.__priors[c] = math.log(len(corpus)/N)
 
     def __compute_vocabulary(self, training_set, fields) -> None:
         """
         Builds up the overall vocabulary as seen in the training set.
         """
-        for _, corpus in training_set : 
+        # set of terms
+        for corpus in training_set.values() : 
             for field in fields : 
-                [self.__vocabulary.add_if_absent(token) for doc in corpus for token in self.__get_terms(doc.get_field(field))]
+                [self.__vocabulary.add_if_absent(token) for doc in corpus for token in self.__get_terms(doc.get_field(field, None))]
                     
 
     def __compute_posteriors(self, training_set, fields) -> None:
@@ -72,15 +73,15 @@ class NaiveBayesClassifier:
         the naive Bayes classifier.
         """
         # Number of occurences of word in docs of class c / total number of words in documents of class c
-        for c, corpus in training_set :
+        for c, corpus in training_set.items() :
             N = 0
             counter = Counter()
             for field in fields :
-                tokens = [token for doc in corpus for token in self.__get_terms(doc.get_field(field))]
+                tokens = [token for doc in corpus for token in self.__get_terms(doc.get_field(field, None))]
                 counter += Counter(tokens)
                 N+=len(tokens)
 
-            for term, _ in self.__vocabulary :
+            for term in self.__vocabulary :
                 self.__conditionals[c][term] = math.log(counter[term]/N)
 
     def __get_terms(self, buffer) -> Iterator[str]:
@@ -117,5 +118,13 @@ class NaiveBayesClassifier:
         The results yielded back to the client are dictionaries having the keys "score" (float) and
         "category" (str).
         """
-        # argmax compute_posteriors*compute_priors
-        raise NotImplementedError("You need to implement this as part of the obligatory assignment.")
+        terms = self.__get_terms(buffer)
+        posteriors = {c:sum([self.__conditionals[c][t]] for t in terms) for c in self.__conditionals}
+
+        predicted_scores = [(c, posteriors[c]+self.__priors[c]) for c in self.__conditionals]
+        predicted_scores.sort(key=lambda x : x[1])
+
+        for c, score in predicted_scores :
+            yield {"score" : score, "category" : c}
+
+        
