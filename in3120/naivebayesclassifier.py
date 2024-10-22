@@ -51,9 +51,8 @@ class NaiveBayesClassifier:
         the naive Bayes classifier.
         """
         # number of documents of class c / total number of documents
-        N=0 
-        for corpus in training_set.values() :
-            N += len(corpus)
+        N = sum(len(corpus) for corpus in training_set.values())
+
         for c, corpus in training_set.items() :
             self.__priors[c] = math.log(len(corpus)/N)
 
@@ -61,10 +60,11 @@ class NaiveBayesClassifier:
         """
         Builds up the overall vocabulary as seen in the training set.
         """
-        # set of terms
         for corpus in training_set.values() : 
             for field in fields : 
-                [self.__vocabulary.add_if_absent(token) for doc in corpus for token in self.__get_terms(doc.get_field(field, None))]
+                for doc in corpus :
+                    for term in self.__get_terms(doc.get_field(field, "")) :
+                        self.__vocabulary.add_if_absent(term)
                     
 
     def __compute_posteriors(self, training_set, fields) -> None:
@@ -73,16 +73,20 @@ class NaiveBayesClassifier:
         the naive Bayes classifier.
         """
         # Number of occurences of word in docs of class c / total number of words in documents of class c
-        for c, corpus in training_set.items() :
+        for c, corpus in training_set.items():
             N = 0
             counter = Counter()
             for field in fields :
                 tokens = [token for doc in corpus for token in self.__get_terms(doc.get_field(field, None))]
                 counter += Counter(tokens)
                 N+=len(tokens)
+            self.__denominators[c] = N+len(self.__vocabulary)
 
-            for term in self.__vocabulary :
-                self.__conditionals[c][term] = math.log(counter[term]/N)
+            if c not in self.__conditionals :
+                self.__conditionals[c] = {}
+
+            for term, _ in self.__vocabulary :
+                self.__conditionals[c][term] = math.log((counter[term]+1)/self.__denominators[c])
 
     def __get_terms(self, buffer) -> Iterator[str]:
         """
@@ -119,9 +123,9 @@ class NaiveBayesClassifier:
         "category" (str).
         """
         terms = self.__get_terms(buffer)
-        posteriors = {c:sum([self.__conditionals[c][t]] for t in terms) for c in self.__conditionals}
+        posteriors = {c:sum(self.__conditionals[c].get(t, math.log(1/self.__denominators[c])) for t in terms) for c in self.__conditionals.keys()}
 
-        predicted_scores = [(c, posteriors[c]+self.__priors[c]) for c in self.__conditionals]
+        predicted_scores = [(c, posteriors[c]+self.__priors[c]) for c in self.__conditionals.keys()]
         predicted_scores.sort(key=lambda x : x[1])
 
         for c, score in predicted_scores :
