@@ -126,7 +126,7 @@ class NaiveBayesClassifier:
         posteriors = {c:sum(self.__conditionals[c].get(t, math.log(1/self.__denominators[c])) for t in terms) for c in self.__conditionals.keys()}
 
         predicted_scores = [(c, posteriors[c]+self.__priors[c]) for c in self.__conditionals.keys()]
-        predicted_scores.sort(key=lambda x : x[1])
+        predicted_scores.sort(key=lambda x : x[1], reverse=True)
 
         for c, score in predicted_scores :
             yield {"score" : score, "category" : c}
