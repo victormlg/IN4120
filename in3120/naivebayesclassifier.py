@@ -122,7 +122,7 @@ class NaiveBayesClassifier:
         The results yielded back to the client are dictionaries having the keys "score" (float) and
         "category" (str).
         """
-        terms = self.__get_terms(buffer)
+        terms = list(self.__get_terms(buffer))
         posteriors = {c:sum(self.__conditionals[c].get(t, math.log(1/self.__denominators[c])) for t in terms) for c in self.__conditionals.keys()}
 
         predicted_scores = [(c, posteriors[c]+self.__priors[c]) for c in self.__conditionals.keys()]
